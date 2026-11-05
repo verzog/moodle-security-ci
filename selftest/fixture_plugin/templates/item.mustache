@@ -1,0 +1,8 @@
+{{!
+    @template local_fixture/item
+}}
+<div>{{{rawtitle}}}</div> {{! EXPECT:S5-mustache-raw }}
+{{! Security-lint: ignore S5-mustache-raw (content is format_text() output from the renderer). }}
+<div>{{{content}}}</div>
+<div>{{safe}}</div>
+<script src="https://cdn.example.com/x.js"></script> {{! EXPECT:S6-external-asset }}

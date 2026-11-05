@@ -1,0 +1,79 @@
+# .github/workflows/release.yml — "Release zip"
+#
+# Publishing a GitHub release runs this. It refuses to attach a zip unless:
+#   1. the tag (minus its leading "v") equals $plugin->release in version.php,
+#   2. security-lint reports nothing and OSV finds no known vulnerabilities in lockfiles,
+#   3. tests/release/<tag>.md exists, is fully ticked and says "Result: PASS".
+# It then attaches the installable zip and the test record to the release.
+# If a gate fails: fix on main, then re-run this workflow (never attach files by hand).
+
+name: Release zip
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+      SECURITY_CI_REF: v1.1.0  # Same pin as moodle-ci.yml.
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          path: plugin
+
+      - name: Read plugin metadata and check the tag
+        id: meta
+        working-directory: plugin
+        run: |
+          # Read version.php as text; never execute it.
+          RELEASE=$(sed -nE "s/^\\\$plugin->release[[:space:]]*=[[:space:]]*'([^']+)'.*/\1/p" version.php)
+          COMPONENT=$(sed -nE "s/^\\\$plugin->component[[:space:]]*=[[:space:]]*'([^']+)'.*/\1/p" version.php)
+          if [ -z "$RELEASE" ] || [ -z "$COMPONENT" ]; then
+            echo "::error file=version.php::Could not read \$plugin->release or \$plugin->component."
+            exit 1
+          fi
+          if [ "${TAG#v}" != "$RELEASE" ]; then
+            echo "::error file=version.php::Tag $TAG does not match \$plugin->release '$RELEASE'."
+            exit 1
+          fi
+          echo "component=$COMPONENT" >> "$GITHUB_OUTPUT"
+          echo "name=${COMPONENT#*_}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up PHP (lowest supported)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Fetch moodle-security-ci
+        run: git clone --depth 1 --branch "$SECURITY_CI_REF" https://github.com/verzog/moodle-security-ci.git security-ci
+
+      - name: Gate — security lint
+        run: php security-ci/bin/security-lint.php --annotate-prefix=plugin/ plugin
+
+      - name: Gate — known vulnerabilities (OSV)
+        run: bash security-ci/bin/osv-check.sh plugin
+
+      - name: Gate — release test record
+        run: bash security-ci/bin/check-test-record.sh plugin "$TAG"
+
+      - name: Build zip and attach with the test record
+        env:
+          COMPONENT: ${{ steps.meta.outputs.component }}
+          NAME: ${{ steps.meta.outputs.name }}
+        run: |
+          ZIP="${COMPONENT}-${TAG}.zip"
+          RECORD="${COMPONENT}-${TAG}-test-record.md"
+          # The folder inside the zip must be the plugin's directory name, not the repo name.
+          git -C plugin archive --format=zip --prefix="${NAME}/" -o "../${ZIP}" "$TAG"
+          cp "plugin/tests/release/${TAG}.md" "$RECORD"
+          gh release upload "$TAG" "$ZIP" "$RECORD" --clobber --repo "$GITHUB_REPOSITORY"

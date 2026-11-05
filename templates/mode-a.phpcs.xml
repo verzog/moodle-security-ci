@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Mode A (proprietary SCCA) ruleset. Save as .phpcs.xml in the plugin root.
+
+    moodle-cs (3.4.2 and later) warns on every @license tag that is not the GPL string
+    (moodle.Commenting.FileExpectedTags.LicenseTagInvalid), and CI runs phpcs with
+    max-warnings 0. Rather than excluding that sniff, point it at the proprietary licence,
+    so a file with a missing or wrong @license still fails.
+-->
+<ruleset name="ProjectRuleset">
+    <rule ref="moodle">
+        <!-- Proprietary plugin: GPL boilerplate sniff does not apply. -->
+        <exclude name="moodle.Files.BoilerplateComment"/>
+    </rule>
+    <rule ref="moodle.Commenting.FileExpectedTags">
+        <properties>
+            <property name="preferredLicenseRegex"
+                value="@^Proprietary — Skin Cancer College Australasia, all rights reserved$@"/>
+        </properties>
+    </rule>
+</ruleset>

@@ -1,0 +1,40 @@
+# Add this job to .github/workflows/moodle-ci.yml, under "jobs:", next to the existing "test" job.
+# It needs no Moodle install or database, so it runs in about a minute and fails fast.
+#
+# Also remove the old non-blocking "PHP Mess Detector" step from the test job: this job replaces it
+# with a blocking unused-code check.
+
+  security:
+    runs-on: ubuntu-24.04
+    env:
+      SECURITY_CI_REF: v1.1.0  # Pin a tag; bump deliberately.
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Set up PHP (lowest supported)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer
+
+      - name: Fetch moodle-security-ci
+        run: git clone --depth 1 --branch "$SECURITY_CI_REF" https://github.com/verzog/moodle-security-ci.git security-ci
+
+      - name: Security lint
+        if: ${{ !cancelled() }}
+        run: php security-ci/bin/security-lint.php --annotate-prefix=plugin/ plugin
+
+      - name: Known vulnerabilities in third-party code (OSV)
+        if: ${{ !cancelled() }}
+        run: bash security-ci/bin/osv-check.sh plugin
+
+      - name: Unused code (PHPMD, blocking)
+        if: ${{ !cancelled() }}
+        run: |
+          composer require --quiet --working-dir=tools phpmd/phpmd:^2.15
+          tools/vendor/bin/phpmd plugin text security-ci/config/phpmd-unused.xml \
+            --exclude '*/tests/*,*/vendor/*,*/amd/*,*/node_modules/*'

@@ -1,0 +1,31 @@
+# Add to .gitlab-ci.yml (self-hosted GitLab CE). Runs in the existing "static" stage.
+# No Moodle install or database needed. The Code Quality report shows findings in the merge request.
+
+security:
+  stage: static
+  image: moodlehq/moodle-php-apache:8.2
+  variables:
+    TZ: Australia/Sydney
+    SECURITY_CI_REPO: https://github.com/verzog/moodle-security-ci.git
+    SECURITY_CI_REF: v1.1.0  # Pin a tag; bump deliberately.
+  before_script:
+    - git clone --depth 1 --branch "$SECURITY_CI_REF" "$SECURITY_CI_REPO" /tmp/security-ci
+    - composer require --quiet --working-dir=/tmp/tools phpmd/phpmd:^2.15
+  script:
+    - php /tmp/security-ci/bin/security-lint.php --codequality=gl-code-quality-report.json .
+    - bash /tmp/security-ci/bin/osv-check.sh .
+    - /tmp/tools/vendor/bin/phpmd . text /tmp/security-ci/config/phpmd-unused.xml --exclude '*/tests/*,*/vendor/*,*/amd/*,*/node_modules/*'
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality-report.json
+
+# Optional: check the release record when a version tag is pushed (GitLab equivalent of the GitHub release gate).
+release-record:
+  stage: static
+  image: moodlehq/moodle-php-apache:8.2
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+  script:
+    - git clone --depth 1 --branch "${SECURITY_CI_REF:-v1.1.0}" "${SECURITY_CI_REPO:-https://github.com/verzog/moodle-security-ci.git}" /tmp/security-ci
+    - bash /tmp/security-ci/bin/check-test-record.sh . "$CI_COMMIT_TAG"
