@@ -60,7 +60,7 @@ that covers it.
 | `S18-no-guard` | S18 | Top-level `define()`/`require` in a file with no MOODLE_INTERNAL guard or config.php bootstrap |
 | `S19-external` | S19 | `classes/external` `execute()` without `validate_parameters()` (result used), `validate_context()` and a capability check (same-file helpers are followed) |
 | `S20-undeclared`, `S20-missing-location` | S20 | Vendored code (`vendor/`, `*.min.js`, nested LICENSE/composer.json) not in `thirdpartylibs.xml`; declared paths that don't exist |
-| `P1-loop-query` | P1 | `$DB` query, `grade_item::fetch()`, `is_enrolled()`, `groups_get_all_groups()` etc. inside `foreach`/`for`/`while` |
+| `P1-loop-query` | P1 | `$DB` query, `grade_item::fetch()`, `is_enrolled()`, `groups_get_all_groups()` etc. inside `foreach`/`for`/`while`, directly or through functions and methods in the same file (getters that cache their result are skipped) |
 | `P2-no-index` | P2 | `$DB->get_records('plugin_table', ['col' => …])` where `col` is not the first column of a key/index in `install.xml` |
 | `P3-request-io` | P3 | `email_to_user()`, `message_send()`, `curl`, `SoapClient` in entry points, `lib.php`, external/output/form classes, observers |
 | `P4-sleep`, `P4-lock-wait` | P4 | `sleep()` or a lock wait over 2 s outside CLI/task code |
@@ -83,6 +83,11 @@ Put this on the flagged line or up to three lines above it. The reason in bracke
 The comment follows the phpcs inline-comment rule (capital letter, ends with a full stop). The same syntax works
 in JS (`//`) and Mustache (`{{! … }}`). For `db/access.php`, put it anywhere inside the capability's array.
 For an adhoc task with no personal data, put `Security-lint: ignore S17 (reason)` anywhere in the task file.
+
+The workflow snippets pin GitHub Actions to full commit SHAs (with the version in a comment), so a moved or
+compromised tag cannot change what runs, which matters most in the release workflow, which can write to
+releases. Dependabot keeps this repo's pins current; copy new pins into plugin repos when you bump
+`SECURITY_CI_REF`.
 
 ## Adopting it in a plugin
 
@@ -123,6 +128,6 @@ is ever executed. CI also runs ShellCheck on the scripts and moodle-cs on `templ
 The lint never runs plugin code. Every file, `db/access.php` included, is read as text or with PHP's tokenizer,
 so it is safe to point at a plugin you have not reviewed yet.
 
-This is a pattern lint, not a data-flow analyser. It will miss a query inside a helper that is called from a
-loop, and it cannot tell whether a value reaching `innerHTML` was already sanitised. The PHPUnit layer and the
-release checks exist for exactly those gaps. It also does not replace a human review of the audit reports.
+This is a pattern lint, not a data-flow analyser. It follows helpers in the same file, but will miss a query
+inside a helper in another file that is called from a loop, and it cannot tell whether a value reaching
+`innerHTML` was already sanitised. The PHPUnit layer and the release checks exist for exactly those gaps. It also does not replace a human review of the audit reports.

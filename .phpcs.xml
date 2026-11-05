@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Coding style for this repository's own PHP. Run:
+    phpcs with this file as the standard (it lists the paths to check).
+-->
+<ruleset name="moodle-security-ci">
+    <file>bin</file>
+    <file>templates/tests</file>
+    <arg name="extensions" value="php"/>
+    <rule ref="moodle">
+        <!-- bin/security-lint.php is a standalone CLI tool, not a Moodle plugin file: it starts with a
+             shebang, never loads Moodle, and ships as one file so CI can fetch and run it directly. -->
+        <exclude name="moodle.Files.BoilerplateComment.NoPHP"/>
+        <exclude name="moodle.Files.MoodleInternal.MoodleInternalGlobalState"/>
+        <exclude name="PSR1.Classes.ClassDeclaration.MultipleClasses"/>
+    </rule>
+    <!-- The lint looks for the shell backtick operator, so its patterns must contain backticks. -->
+    <rule ref="moodle.Strings.ForbiddenStrings.Found">
+        <exclude-pattern>bin/security-lint.php</exclude-pattern>
+    </rule>
+</ruleset>

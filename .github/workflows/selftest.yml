@@ -24,8 +24,8 @@ jobs:
       matrix:
         php: ['8.2', '8.3', '8.4']
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962  # 2.40.0
         with:
           php-version: ${{ matrix.php }}
           coverage: none
@@ -37,8 +37,8 @@ jobs:
   scripts-and-templates:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962  # 2.40.0
         with:
           php-version: '8.2'
           coverage: none
@@ -51,11 +51,13 @@ jobs:
           mkdir -p tools
           composer require --quiet --no-interaction --working-dir=tools moodlehq/moodle-cs:^3.4 phpmd/phpmd:^2.15
           # Register the standards explicitly rather than relying on the composer installer plugin.
+          v="$PWD/tools/vendor"
           tools/vendor/bin/phpcs --config-set installed_paths \
-            "$PWD/tools/vendor/moodlehq/moodle-cs/Standards,$PWD/tools/vendor/phpcsstandards/phpcsextra,$PWD/tools/vendor/phpcsstandards/phpcsutils"
-      - name: PHPUnit templates pass Moodle coding style
-        # Plugins copy these files as-is, so they must pass the same phpcs --max-warnings 0 as plugin CI.
-        run: tools/vendor/bin/phpcs --standard=moodle --warning-severity=1 templates/tests
+            "$v/moodlehq/moodle-cs/Standards,$v/phpcsstandards/phpcsextra,$v/phpcsstandards/phpcsutils"
+      - name: Moodle coding style (bin/ and templates/tests/)
+        # Plugins copy the templates as-is, so they must pass the same phpcs --max-warnings 0 as plugin CI.
+        # .phpcs.xml lists the paths and the CLI-only exclusions for bin/security-lint.php.
+        run: tools/vendor/bin/phpcs --standard=.phpcs.xml --warning-severity=1
       - name: PHPMD unused-code ruleset loads and the clean fixture passes it
         run: |
           tools/vendor/bin/phpmd selftest/clean_plugin text config/phpmd-unused.xml \

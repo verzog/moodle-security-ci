@@ -1,0 +1,8 @@
+# Keeps the commit-pinned GitHub Actions in this repo up to date. Plugin repos that copy the CI snippets
+# get the same pins, so bump them there when this repo's pins change.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

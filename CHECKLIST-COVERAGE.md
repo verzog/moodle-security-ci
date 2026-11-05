@@ -54,7 +54,7 @@ release record covers the rest.
 
 | ID | Check (short) | Coverage | How |
 |---|---|---|---|
-| P1 | No per-row queries in loops | Lint + Test | `P1-loop-query`; `query_scaling_test.php` catches queries hidden in helpers |
+| P1 | No per-row queries in loops | Lint + Test | `P1-loop-query` (also through helpers in the same file); `query_scaling_test.php` catches queries in helpers in other files |
 | P2 | Indexes for selective predicates | Lint (partly) | `P2-no-index` (array-condition lookups; hand-written WHERE clauses stay a review item) |
 | P3 | No growing/blocking work on requests | Lint (partly) + Test + Release | `P3-request-io`; `query_scaling_test.php`; large-data timings |
 | P4 | No sleep/polling on requests | Lint | `P4-sleep`, `P4-lock-wait` |

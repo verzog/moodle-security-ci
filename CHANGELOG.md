@@ -12,6 +12,14 @@
 - Self-test: hostile fixture proving `db/access.php` is not executed; Code Quality JSON check; the clean fixture
   must also pass PHPMD; ShellCheck on the scripts; moodle-cs on `templates/tests/`; read-only permissions and
   no duplicate push/PR runs.
+- `P1-loop-query` follows functions and methods in the same file: a loop that calls `$this->load_user()`,
+  `self::x()` or a plain function that runs a query (directly or through further helpers) is reported at the call,
+  naming the chain. Getters that cache their result (check and assign a property or static, or use the cache
+  API) are skipped. Expect more P1 findings on first run.
+- GitHub Actions in the workflows and snippets are pinned to commit SHAs (`actions/checkout` v4.4.0,
+  `shivammathur/setup-php` 2.40.0); Dependabot keeps this repo's pins current.
+- `bin/security-lint.php` passes Moodle coding style; `.phpcs.xml` documents the CLI-only exclusions and CI checks
+  `bin/` with the templates.
 - Added `LICENSE` (GPLv3) and `.gitattributes` (LF line endings).
 
 ## v1.1.0 — 06/11/2026

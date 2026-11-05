@@ -212,7 +212,8 @@ const RULES = [
         'Q8',
         'Deprecated core API',
         'Use the replacement: events instead of add_to_log(), moodle_exception instead of print_error(), '
-            . 'context_*::instance() instead of get_context_instance(), core_external\\ classes, hooks instead of lib.php callbacks.',
+            . 'context_*::instance() instead of get_context_instance(), core_external\\ classes, '
+            . 'hooks instead of lib.php callbacks.',
     ],
 ];
 
@@ -441,8 +442,10 @@ final class security_lint {
         $this->root = rtrim($root, '/');
         $this->load_thirdparty();
         $version = $this->root . '/version.php';
-        if (is_file($version)
-                && preg_match('/\$plugin->component\s*=\s*[\'"](\w+)[\'"]/', (string) file_get_contents($version), $m)) {
+        if (
+            is_file($version)
+                && preg_match('/\$plugin->component\s*=\s*[\'"](\w+)[\'"]/', (string) file_get_contents($version), $m)
+        ) {
             $this->component = $m[1];
         }
     }
@@ -617,21 +620,27 @@ final class security_lint {
             if ($writes && preg_match('/->(\$\w+|\{\$[^}]+\})\s*=(?!=)/', $l)) {
                 $this->add('S3-dynamic-column', $rel, $n);
             }
-            if (preg_match('/getMessage\(\)/', $l)
+            if (
+                preg_match('/getMessage\(\)/', $l)
                     && preg_match('/(get_string|notification|echo|print\b|html_writer|\$OUTPUT)/', $l)
-                    && !preg_match('/(\bs\(|format_string|htmlspecialchars|s\(\s*\$\w+->getMessage)/', $l)) {
+                    && !preg_match('/(\bs\(|format_string|htmlspecialchars|s\(\s*\$\w+->getMessage)/', $l)
+            ) {
                 $this->add('S5-php-exception', $rel, $n);
             }
             if (preg_match('#(preg_replace|str_ireplace|str_replace)\s*\(.*<\\\\?/(style|script)#i', $l)) {
                 $this->add('S5-php-strip', $rel, $n);
             }
-            if ((preg_match('/<textarea[^>]*>[\'"]?\s*\.\s*\$/i', $l)
+            if (
+                (preg_match('/<textarea[^>]*>[\'"]?\s*\.\s*\$/i', $l)
                     || preg_match("/html_writer::tag\(\s*'textarea'\s*,\s*\\$/", $l))
-                    && !preg_match('/\bs\(|htmlspecialchars/', $l)) {
+                    && !preg_match('/\bs\(|htmlspecialchars/', $l)
+            ) {
                 $this->add('S5-php-textarea', $rel, $n);
             }
-            if (preg_match('/\bvar_dump\s*\(/', $l)
-                    || preg_match('/\b(print_r|var_export)\s*\((?![^;]*,\s*true\s*\))/', $l)) {
+            if (
+                preg_match('/\bvar_dump\s*\(/', $l)
+                    || preg_match('/\b(print_r|var_export)\s*\((?![^;]*,\s*true\s*\))/', $l)
+            ) {
                 $this->add('Q7-debug', $rel, $n);
             }
             if (!$background && preg_match('/\b(u?sleep|time_nanosleep)\s*\(/', $l)) {
@@ -640,41 +649,52 @@ final class security_lint {
             if (!$background && preg_match('/get_lock\s*\([^;]*,\s*(\d+)\s*\)/', $l, $m) && (int) $m[1] > 2) {
                 $this->add('P4-lock-wait', $rel, $n, "timeout {$m[1]}s");
             }
-            if ($requestpath && preg_match(
-                '/\b(email_to_user|message_send|download_file_content)\s*\(|new\s+\\\\?(curl|SoapClient)\b/',
-                $l
-            )) {
+            if (
+                $requestpath && preg_match(
+                    '/\b(email_to_user|message_send|download_file_content)\s*\(|new\s+\\\\?(curl|SoapClient)\b/',
+                    $l
+                )
+            ) {
                 $this->add('P3-request-io', $rel, $n);
             }
             if ($this->external_asset($l)) {
                 $this->add('S6-external-asset', $rel, $n);
             }
-            if (preg_match('/\b(mtrace|debugging|error_log|syslog)\s*\(|throw\s+new\s+\\\\?\w*exception\s*\(|'
+            if (
+                preg_match('/\b(mtrace|debugging|error_log|syslog)\s*\(|throw\s+new\s+\\\\?\w*exception\s*\(|'
                     . '->(log|record_call|debug|info|warning|error)\s*\(/i', $l)
                     && preg_match('/(\$|->)\w*(password|passwd|secret|token|apikey|api_key|bearer|privatekey)\w*\b(?!\s*\()/i', $l)
-                    && !preg_match('/(redact|mask|strlen|empty|isset|is_null|hash|md5|sha1)\s*\(/i', $l)) {
+                    && !preg_match('/(redact|mask|strlen|empty|isset|is_null|hash|md5|sha1)\s*\(/i', $l)
+            ) {
                 $this->add('S11-secret-log', $rel, $n);
             }
-            if (preg_match('/sesskey\s*\(\s*\)/', $l)
-                    && preg_match('/(mtrace|debugging|error_log|[\'"]other[\'"]\s*=>|->log\s*\(|logger|[\'"]https?:\/\/)/i', $l)) {
+            if (
+                preg_match('/sesskey\s*\(\s*\)/', $l)
+                    && preg_match('/(mtrace|debugging|error_log|[\'"]other[\'"]\s*=>|->log\s*\(|logger|[\'"]https?:\/\/)/i', $l)
+            ) {
                 $this->add('S16-sesskey-leak', $rel, $n);
             }
             if ($q3 = $this->core_global_write($l)) {
                 $this->add('Q3-core-global', $rel, $n, $q3);
             }
-            if (!str_starts_with($rel, 'lang/')
+            if (
+                !str_starts_with($rel, 'lang/')
                     && preg_match('/(?<![\w$>:\\\\])(' . implode('|', array_keys(DEPRECATED_FUNCTIONS)) . ')\s*\(/', $l, $m)
-                    && !preg_match('/function\s+' . $m[1] . '\b/', $l)) {
+                    && !preg_match('/function\s+' . $m[1] . '\b/', $l)
+            ) {
                 $this->add('Q8-deprecated', $rel, $n, $m[1] . '() → ' . DEPRECATED_FUNCTIONS[$m[1]]);
             }
             if (preg_match('/require(_once)?\s*\(?.*externallib\.php/', $l)) {
                 $this->add('Q8-deprecated', $rel, $n, 'externallib.php → core_external\\ classes');
             }
-            if (preg_match('/extends\s+\\\\?external_api\b/', $l) && !preg_match('/use\s+core_external\\\\external_api\s*;/', $code)) {
+            $globalapi = preg_match('/extends\s+\\\\?external_api\b/', $l);
+            if ($globalapi && !preg_match('/use\s+core_external\\\\external_api\s*;/', $code)) {
                 $this->add('Q8-deprecated', $rel, $n, 'global external_api → core_external\\external_api');
             }
-            if ($this->component !== ''
-                    && preg_match('/function\s+' . $this->component . '_(' . implode('|', HOOKED_CALLBACKS) . ')\s*\(/', $l, $m)) {
+            if (
+                $this->component !== ''
+                    && preg_match('/function\s+' . $this->component . '_(' . implode('|', HOOKED_CALLBACKS) . ')\s*\(/', $l, $m)
+            ) {
                 $this->add('Q8-deprecated', $rel, $n, $m[1] . ' callback → hook');
             }
         }
@@ -687,22 +707,29 @@ final class security_lint {
                 if (preg_match('/^\s*(\/\/|\*|#)/', $l)) {
                     continue;
                 }
-                if ($login === null && preg_match(
-                    '/\b(require_login|require_course_login|admin_externalpage_setup|require_admin|require_user_key_login)\s*\(/',
-                    $l
-                )) {
+                if (
+                    $login === null && preg_match(
+                        '/\b(require_login|require_course_login|admin_externalpage_setup|require_admin|'
+                            . 'require_user_key_login)\s*\(/',
+                        $l
+                    )
+                ) {
                     $login = $i + 1;
                 }
-                if ($effect === null && preg_match(
-                    '/^\s*(echo|print)\b|\$OUTPUT->header\s*\(|\$DB->(insert|update|delete|set_field|execute)\w*\s*\(|'
+                if (
+                    $effect === null && preg_match(
+                        '/^\s*(echo|print)\b|\$OUTPUT->header\s*\(|\$DB->(insert|update|delete|set_field|execute)\w*\s*\(|'
                         . '\b(send_file|send_stored_file|readfile)\s*\(/',
-                    $l
-                )) {
+                        $l
+                    )
+                ) {
                     $effect = $i + 1;
                 }
             }
-            $protected = preg_match('/\$DB->|\$OUTPUT->|->header\s*\(|^\s*(echo|print)\b|send_\w*file\s*\(|readfile\s*\(|->render\w*\s*\(/m',
-                $code)
+            $protected = preg_match(
+                '/\$DB->|\$OUTPUT->|->header\s*\(|^\s*(echo|print)\b|send_\w*file\s*\(|readfile\s*\(|->render\w*\s*\(/m',
+                $code
+            )
                 || preg_match('/(->|::)(push|sync|delete|remove|save|update|create|insert|reset|enrol|unenrol|suspend|import|queue|'
                     . 'send|export|download)\w*\s*\(|\bemail_to_user\s*\(/i', $code);
             if ($login === null && $protected) {
@@ -716,9 +743,11 @@ final class security_lint {
         $mutates = preg_match('/\$DB->(insert|update|delete|set_field|execute)/', $code)
             || preg_match('/(->|::)(push|sync|delete|remove|save|update|create|insert|reset|enrol|unenrol|suspend|'
                 . 'import|queue|move|clone|reorder)\w*\s*\(/i', $code);
-        if ($mutates && $this->is_entry_point($rel, $code)
+        if (
+            $mutates && $this->is_entry_point($rel, $code)
                 && preg_match('/\b(confirm_sesskey|require_sesskey)\s*\(/', $code)
-                && !preg_match('/data_submitted\s*\(|->get_data\s*\(|REQUEST_METHOD|is_post_request/', $code)) {
+                && !preg_match('/data_submitted\s*\(|->get_data\s*\(|REQUEST_METHOD|is_post_request/', $code)
+        ) {
             foreach ($lines as $i => $l) {
                 if (preg_match('/\b(confirm_sesskey|require_sesskey)\s*\(/', $l)) {
                     $this->add('S8-get-write', $rel, $i + 1);
@@ -754,8 +783,10 @@ final class security_lint {
         if (preg_match('/\$(CFG|USER|COURSE|PAGE|OUTPUT|DB|SESSION|SITE)\s*=(?![=>])/', $l, $m)) {
             return '$' . $m[1] . ' replaced';
         }
-        if (preg_match('/\$(CFG|USER|COURSE|SITE)->(\w+)\s*(\[[^\]]*\]\s*)?(\.|\+|-)?=(?![=>])/', $l, $m)
-                && !($m[1] === 'USER' && $m[2] === 'editing')) {
+        if (
+            preg_match('/\$(CFG|USER|COURSE|SITE)->(\w+)\s*(\[[^\]]*\]\s*)?(\.|\+|-)?=(?![=>])/', $l, $m)
+                && !($m[1] === 'USER' && $m[2] === 'editing')
+        ) {
             return '$' . $m[1] . '->' . $m[2];
         }
         if (preg_match('/\$SESSION->(\w+)\s*(\[[^\]]*\]\s*)?(\.|\+|-)?=(?![=>])/', $l, $m)) {
@@ -779,7 +810,8 @@ final class security_lint {
             return true;
         }
         // Results of get_in_or_equal() are usually named ...in / ...insql / ...notin.
-        if (preg_match('/(in|insql|notin)$/i', $name) && !preg_match('/(admin|login|origin|plugin|domain|margin|begin)$/i', $name)) {
+        $inlist = preg_match('/(in|insql|notin)$/i', $name);
+        if ($inlist && !preg_match('/(admin|login|origin|plugin|domain|margin|begin)$/i', $name)) {
             return true;
         }
         return preg_match(SQL_FRAGMENT_WORDS, $name) && !preg_match(SQL_VALUE_ENDINGS, $name);
@@ -797,8 +829,13 @@ final class security_lint {
         $strong = false;
         for ($i = $from; $i < $to; $i++) {
             $t = $tokens[$i];
-            if (is_array($t) && in_array($t[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)
-                    && preg_match('/\b(SELECT|UPDATE|DELETE\s+FROM|INSERT\s+INTO|WHERE|JOIN)\b|(?<!\{)\{[a-z][a-z0-9_]*\}(?!\})/', $t[1])) {
+            if (
+                is_array($t) && in_array($t[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)
+                    && preg_match(
+                        '/\b(SELECT|UPDATE|DELETE\s+FROM|INSERT\s+INTO|WHERE|JOIN)\b|(?<!\{)\{[a-z][a-z0-9_]*\}(?!\})/',
+                        $t[1]
+                    )
+            ) {
                 $strong = true;
                 break;
             }
@@ -845,6 +882,38 @@ final class security_lint {
     }
 
     /**
+     * Name of a call that may target a function or method in the same file, or null.
+     *
+     * Matches self::x(), static::x(), $this->x() and plain x() calls (not new X(), $obj->x() or Other::x()).
+     *
+     * @param array $tokens Tokens.
+     * @param int $i Index of a candidate T_STRING.
+     * @return string|null "method:name" or "function:name" (lower case).
+     */
+    private function local_call_name(array $tokens, int $i): ?string {
+        $t = $tokens[$i];
+        if (!is_array($t) || $t[0] !== T_STRING) {
+            return null;
+        }
+        $next = $this->next_code($tokens, $i);
+        if ($next === null || $tokens[$next] !== '(') {
+            return null;
+        }
+        $prev = $this->prev_code($tokens, $i);
+        $prevtok = $prev === null ? null : $tokens[$prev];
+        if (is_array($prevtok) && in_array($prevtok[0], [T_DOUBLE_COLON, T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR], true)) {
+            $owner = $this->prev_code($tokens, $prev);
+            $ownertext = $owner === null ? '' : strtolower(is_array($tokens[$owner]) ? $tokens[$owner][1] : $tokens[$owner]);
+            $ok = $prevtok[0] === T_DOUBLE_COLON ? in_array($ownertext, ['self', 'static'], true) : $ownertext === '$this';
+            return $ok ? 'method:' . strtolower($t[1]) : null;
+        }
+        if (is_array($prevtok) && in_array($prevtok[0], [T_FUNCTION, T_NEW, T_CONST], true)) {
+            return null;
+        }
+        return 'function:' . strtolower($t[1]);
+    }
+
+    /**
      * Token-based rules: queries in loops, deletes without events, unused imports.
      *
      * @param string $rel Relative path.
@@ -857,6 +926,7 @@ final class security_lint {
         $paren = 0;
         $pendingloop = null;
         $pendingfunc = null;
+        $pendingclass = false;
         $loopdepth = 0;
         $funcs = [];
         $uses = [];
@@ -865,6 +935,7 @@ final class security_lint {
         $checkp1 = !str_starts_with($rel, 'db/');
         $checkdelete = !preg_match('#^(db/|backup/|classes/privacy/|classes/task/|cli/)#', $rel);
         $reported = [];
+        $loopcalls = [];
         $stmtstart = 0;
         $sideeffect = null;
         $backticks = [];
@@ -884,13 +955,19 @@ final class security_lint {
 
             if (in_array($id, [T_FOREACH, T_FOR, T_WHILE, T_DO], true)) {
                 $pendingloop = $paren;
+            } else if (in_array($id, [T_CLASS, T_TRAIT, T_INTERFACE, T_ENUM], true)) {
+                $prev = $this->prev_code($tokens, $i);
+                if ($prev === null || !is_array($tokens[$prev]) || $tokens[$prev][0] !== T_DOUBLE_COLON) {
+                    $pendingclass = true;
+                }
             } else if ($id === T_FUNCTION) {
                 $name = 'closure';
                 $j = $this->next_code($tokens, $i);
                 if ($j !== null && is_array($tokens[$j]) && $tokens[$j][0] === T_STRING) {
                     $name = $tokens[$j][1];
                 }
-                $pendingfunc = ['paren' => $paren, 'name' => $name, 'line' => $line];
+                $method = (bool) array_filter($stack, fn($fr) => !empty($fr['class']));
+                $pendingfunc = ['paren' => $paren, 'name' => $name, 'line' => $line, 'method' => $method];
             } else if ($id === T_USE && empty($stack)) {
                 $start = $i;
                 $parsed = $this->parse_use($tokens, $i, $line);
@@ -920,13 +997,23 @@ final class security_lint {
                     $this->sql_statement($tokens, $stmtstart, $i, $rel);
                     $stmtstart = $i + 1;
                 }
-                $frame = ['loop' => false, 'func' => null, 'interp' => $interp];
-                if (!$interp && $pendingloop !== null && $paren === $pendingloop) {
+                $frame = ['loop' => false, 'func' => null, 'interp' => $interp, 'class' => false];
+                if (!$interp && $pendingclass) {
+                    $frame['class'] = true;
+                    $pendingclass = false;
+                } else if (!$interp && $pendingloop !== null && $paren === $pendingloop) {
                     $frame['loop'] = true;
                     $loopdepth++;
                     $pendingloop = null;
                 } else if (!$interp && $pendingfunc !== null && $paren === $pendingfunc['paren']) {
-                    $funcs[] = $pendingfunc + ['deletes' => [], 'triggers' => false, 'start' => $i, 'end' => $count - 1];
+                    $funcs[] = $pendingfunc + [
+                        'deletes' => [],
+                        'triggers' => false,
+                        'start' => $i,
+                        'end' => $count - 1,
+                        'query' => null,
+                        'calls' => [],
+                    ];
                     $frame['func'] = count($funcs) - 1;
                     $pendingfunc = null;
                 }
@@ -977,9 +1064,11 @@ final class security_lint {
                 $j = $this->next_code($tokens, $i);
                 $k = $j === null ? null : $this->next_code($tokens, $j);
                 $arrows = [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR];
-                if ($k !== null && is_array($tokens[$j]) && in_array($tokens[$j][0], $arrows, true)
+                if (
+                    $k !== null && is_array($tokens[$j]) && in_array($tokens[$j][0], $arrows, true)
                         && is_array($tokens[$k]) && $tokens[$k][0] === T_STRING
-                        && preg_match(DB_QUERY_METHODS, $tokens[$k][1])) {
+                        && preg_match(DB_QUERY_METHODS, $tokens[$k][1])
+                ) {
                     $query = '$DB->' . $tokens[$k][1] . '()';
                     if ($func !== null && str_starts_with($tokens[$k][1], 'delete_records')) {
                         $funcs[$func]['deletes'][] = $line;
@@ -993,12 +1082,16 @@ final class security_lint {
                 if (!$isdecl && $next !== null && $tokens[$next] === '(') {
                     $query = $text . '()';
                 }
-            } else if (in_array($id, [T_STRING, T_NAME_FULLY_QUALIFIED, T_NAME_QUALIFIED], true)
-                    && preg_match('/(^|\\\\)grade_(item|grade)$/', $text)) {
+            } else if (
+                in_array($id, [T_STRING, T_NAME_FULLY_QUALIFIED, T_NAME_QUALIFIED], true)
+                    && preg_match('/(^|\\\\)grade_(item|grade)$/', $text)
+            ) {
                 $j = $this->next_code($tokens, $i);
                 $k = $j === null ? null : $this->next_code($tokens, $j);
-                if ($k !== null && is_array($tokens[$j]) && $tokens[$j][0] === T_DOUBLE_COLON
-                        && is_array($tokens[$k]) && in_array($tokens[$k][1], ['fetch', 'fetch_all'], true)) {
+                if (
+                    $k !== null && is_array($tokens[$j]) && $tokens[$j][0] === T_DOUBLE_COLON
+                        && is_array($tokens[$k]) && in_array($tokens[$k][1], ['fetch', 'fetch_all'], true)
+                ) {
                     $query = ltrim($text, '\\') . '::' . $tokens[$k][1] . '()';
                 }
             } else if ($id === T_STRING && in_array(strtolower($text), $shell, true)) {
@@ -1024,9 +1117,72 @@ final class security_lint {
                     $funcs[$func]['triggers'] = true;
                 }
             }
+            if ($query !== null && $func !== null && $funcs[$func]['query'] === null) {
+                $funcs[$func]['query'] = $query;
+            }
             if ($query !== null && $loopdepth > 0 && $checkp1 && !isset($reported[$line])) {
                 $reported[$line] = true;
                 $this->add('P1-loop-query', $rel, $line, $query);
+            }
+
+            // Calls to functions that may be defined in this file, for P1 through helpers.
+            $callee = $query === null ? $this->local_call_name($tokens, $i) : null;
+            if ($callee !== null) {
+                if ($func !== null) {
+                    $funcs[$func]['calls'][] = $callee;
+                }
+                if ($loopdepth > 0 && $checkp1) {
+                    $loopcalls[] = [$callee, $line];
+                }
+            }
+        }
+
+        // P1 through helpers: a loop calls a function in this file that runs a query (directly or via
+        // other functions in this file).
+        if ($loopcalls) {
+            $runs = [];
+            $memoised = [];
+            foreach ($funcs as $f) {
+                $body = '';
+                for ($k = $f['start']; $k <= $f['end']; $k++) {
+                    $body .= is_array($tokens[$k]) ? $tokens[$k][1] : $tokens[$k];
+                }
+                // Getters that cache their result (check a property or static, then assign it), or use the
+                // cache API, query once per request rather than once per row.
+                $store = '(\$this->\w+|(self|static)::\$\w+)';
+                $checks = preg_match('/if\s*\([^)]*' . $store . '/', $body) || preg_match('/\bstatic\s+\$\w+/', $body);
+                $assigns = preg_match('/' . $store . '(\[[^\]]*\])*\s*=[^=>]/', $body) || preg_match('/\bstatic\s+\$\w+/', $body);
+                if (($checks && $assigns) || preg_match('/\bcache::make(_from_params)?\s*\(/', $body)) {
+                    $memoised[($f['method'] ? 'method:' : 'function:') . strtolower($f['name'])] = true;
+                }
+            }
+            $key = fn(array $f): string => ($f['method'] ? 'method:' : 'function:') . strtolower($f['name']);
+            foreach ($funcs as $f) {
+                if ($f['name'] !== 'closure' && $f['query'] !== null && !isset($memoised[$key($f)])) {
+                    $runs[$key($f)] = $f['name'] . '() runs ' . $f['query'];
+                }
+            }
+            do {
+                $changed = false;
+                foreach ($funcs as $f) {
+                    $name = $key($f);
+                    if ($f['name'] === 'closure' || isset($runs[$name]) || isset($memoised[$name])) {
+                        continue;
+                    }
+                    foreach ($f['calls'] as $c) {
+                        if (isset($runs[$c])) {
+                            $runs[$name] = $f['name'] . '() calls ' . $runs[$c];
+                            $changed = true;
+                            break;
+                        }
+                    }
+                }
+            } while ($changed);
+            foreach ($loopcalls as [$callee, $callline]) {
+                if (isset($runs[$callee]) && !isset($reported[$callline])) {
+                    $reported[$callline] = true;
+                    $this->add('P1-loop-query', $rel, $callline, $runs[$callee]);
+                }
             }
         }
 
@@ -1078,8 +1234,10 @@ final class security_lint {
                 if (!preg_match('/validate_context\s*\(|validate_(?!parameters)\w+\s*\(/', $body)) {
                     $missing[] = 'validate_context()';
                 }
-                if (!preg_match('/\b(require_capability|has_capability|has_any_capability|has_all_capabilities|require_admin|'
-                        . 'is_siteadmin|\w*_can_\w+|can_\w+|require_\w+|check_\w*(capability|permission|access)\w*)\s*\(/', $body)) {
+                if (
+                    !preg_match('/\b(require_capability|has_capability|has_any_capability|has_all_capabilities|require_admin|'
+                        . 'is_siteadmin|\w*_can_\w+|can_\w+|require_\w+|check_\w*(capability|permission|access)\w*)\s*\(/', $body)
+                ) {
                     $missing[] = 'capability check';
                 }
                 if ($missing) {
@@ -1097,11 +1255,15 @@ final class security_lint {
                 }
                 if ($t[0] === T_STRING && strcasecmp($t[1], $short) === 0) {
                     $used = true;
-                } else if (in_array($t[0], [T_NAME_QUALIFIED], true)
-                        && strcasecmp(explode('\\', $t[1])[0], $short) === 0) {
+                } else if (
+                    in_array($t[0], [T_NAME_QUALIFIED], true)
+                        && strcasecmp(explode('\\', $t[1])[0], $short) === 0
+                ) {
                     $used = true;
-                } else if (in_array($t[0], [T_DOC_COMMENT, T_COMMENT], true)
-                        && preg_match('/(?<![\w\\\\])' . preg_quote($short, '/') . '(?!\w)/i', $t[1])) {
+                } else if (
+                    in_array($t[0], [T_DOC_COMMENT, T_COMMENT], true)
+                        && preg_match('/(?<![\w\\\\])' . preg_quote($short, '/') . '(?!\w)/i', $t[1])
+                ) {
                     $used = true;
                 }
                 if ($used) {
@@ -1208,15 +1370,18 @@ final class security_lint {
             if ($sink || preg_match('/insertAdjacentHTML\s*\(|document\.write(ln)?\s*\(|\.html\(\s*[^)\s]/', $l)) {
                 $this->add('S5-js-html', $rel, $n);
             }
-            if ((preg_match('/\b(href|action|formaction)=\\\\?["\']?\$\{/', $l)
+            if (
+                (preg_match('/\b(href|action|formaction)=\\\\?["\']?\$\{/', $l)
                     || preg_match('/setAttribute\(\s*[\'"](href|action|formaction)[\'"]\s*,\s*[^\'"]/', $l))
-                    && !preg_match('/safe(Url|Href)\s*\(|sanitizeUrl\s*\(/', $l)) {
+                    && !preg_match('/safe(Url|Href)\s*\(|sanitizeUrl\s*\(/', $l)
+            ) {
                 $this->add('S5-js-href', $rel, $n);
             }
             if ($this->external_asset($l)) {
                 $this->add('S6-external-asset', $rel, $n);
             }
-            if (preg_match('/sesskey/i', $l) && preg_match('/[\'"`]https?:\/\//', $l) && !preg_match('/M\.cfg\.wwwroot/', $l)) {
+            $offsite = preg_match('/[\'"`]https?:\/\//', $l) && !preg_match('/M\.cfg\.wwwroot/', $l);
+            if (preg_match('/sesskey/i', $l) && $offsite) {
                 $this->add('S16-sesskey-leak', $rel, $n);
             }
         }
@@ -1274,8 +1439,10 @@ final class security_lint {
                     continue;
                 }
                 $code = implode("\n", $this->lines[$rel]);
-                if (preg_match('/\$DB->(insert_record|update_record|delete_records\w*|set_field\w*)\s*\(/', $code)
-                        || preg_match('/new\s+\\\\?(curl|SoapClient)\b/', $code)) {
+                if (
+                    preg_match('/\$DB->(insert_record|update_record|delete_records\w*|set_field\w*)\s*\(/', $code)
+                        || preg_match('/new\s+\\\\?(curl|SoapClient)\b/', $code)
+                ) {
                     $this->add('S12-no-events', $anchor, 1, 'first write in ' . $rel);
                     break;
                 }
@@ -1284,8 +1451,10 @@ final class security_lint {
 
         // Q4 and Q6: tests and README present.
         $tests = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator(is_dir($this->root . '/tests') ? $this->root . '/tests' : $this->root,
-                FilesystemIterator::SKIP_DOTS)
+            new RecursiveDirectoryIterator(
+                is_dir($this->root . '/tests') ? $this->root . '/tests' : $this->root,
+                FilesystemIterator::SKIP_DOTS
+            )
         );
         $hastests = false;
         if (is_dir($this->root . '/tests')) {
@@ -1316,7 +1485,8 @@ final class security_lint {
     private function thirdparty_rules(): void {
         foreach ($this->thirdparty as $loc) {
             if ($loc !== '' && !file_exists($this->root . '/' . $loc)) {
-                $this->add('S20-missing-location', 'thirdpartylibs.xml', $this->find_line('thirdpartylibs.xml', '/' . preg_quote($loc, '/') . '/'), $loc);
+                $line = $this->find_line('thirdpartylibs.xml', '/' . preg_quote($loc, '/') . '/');
+                $this->add('S20-missing-location', 'thirdpartylibs.xml', $line, $loc);
             }
         }
         $declared = function (string $rel): bool {
@@ -1392,8 +1562,10 @@ final class security_lint {
             if (($def['captype'] ?? '') === 'write' && $risk === 0) {
                 $this->add('S14-write-no-risk', $rel, $line, (string) $name);
             }
-            if (($risk & (ACCESS_CONSTANTS['RISK_CONFIG'] | ACCESS_CONSTANTS['RISK_XSS'] | ACCESS_CONSTANTS['RISK_DATALOSS']))
-                    && !empty($def['archetypes'])) {
+            if (
+                ($risk & (ACCESS_CONSTANTS['RISK_CONFIG'] | ACCESS_CONSTANTS['RISK_XSS'] | ACCESS_CONSTANTS['RISK_DATALOSS']))
+                    && !empty($def['archetypes'])
+            ) {
                 $this->add('S14-risky-archetype', $rel, $line, (string) $name);
             }
             $personal = '/:(view(all|any|submissions|reports|grades)|managesubmissions|grade|export|viewreport)/';
@@ -1557,8 +1729,16 @@ foreach ($findings as [$rule, $rel, $line, $detail]) {
     printf("%s:%d  %s  %s\n", $rel, $line, $rule, $msg);
     if ($github) {
         $level = $opts['report-only'] ? 'warning' : 'error';
-        printf("::%s file=%s%s,line=%d,title=%s (%s)::%s\n", $level, $opts['annotate-prefix'], $rel, $line, $rule, $check,
-            str_replace(["\n", '%'], [' ', '%25'], $msg));
+        printf(
+            "::%s file=%s%s,line=%d,title=%s (%s)::%s\n",
+            $level,
+            $opts['annotate-prefix'],
+            $rel,
+            $line,
+            $rule,
+            $check,
+            str_replace(["\n", '%'], [' ', '%25'], $msg)
+        );
     }
     $bycount[$rule] = ($bycount[$rule] ?? 0) + 1;
     $cq[] = [
