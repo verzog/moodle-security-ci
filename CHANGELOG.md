@@ -9,6 +9,10 @@
   - `S3-superglobal`, `S3-param-raw`, `S5-php-exception`, `Q7-debug` and `P4-sleep` ignore text inside plain
     string literals, so a sniff or rule list that names `'$_GET'` or `'PARAM_RAW'` is not reported.
     Interpolated strings such as `"{$_GET['x']}"` are still checked.
+- CI snippets (`ci/github/moodle-ci-security-job.yml`, `ci/github/release.yml`) pin `actions/checkout` v7.0.1, matching
+  this repo's self-test. v4 ran on the deprecated Node 20. The v5–v7 breaking changes only affect
+  `pull_request_target` and `workflow_run` triggers, which these workflows do not use. When you bump
+  `SECURITY_CI_REF` in a plugin, copy the new pin too.
 
 ## v1.2.0 — 06/11/2026
 
