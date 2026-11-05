@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.1 — 06/11/2026
+
+- Fixed false positives found adopting the lint on local_codechecker:
+  - Language files (`lang/`) are no longer checked by the PHP line rules. Their strings often name the very
+    functions the rules look for (for example "No sleep() on the request path"), and lang files cannot hold
+    suppression comments.
+  - `S3-superglobal`, `S3-param-raw`, `S5-php-exception`, `Q7-debug` and `P4-sleep` ignore text inside plain
+    string literals, so a sniff or rule list that names `'$_GET'` or `'PARAM_RAW'` is not reported.
+    Interpolated strings such as `"{$_GET['x']}"` are still checked.
+
 ## v1.2.0 — 06/11/2026
 
 - Security: `db/access.php` is now read with the tokenizer instead of being `include`d, so the lint never

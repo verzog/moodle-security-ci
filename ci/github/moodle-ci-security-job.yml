@@ -10,7 +10,7 @@
       contents: read
     env:
       TZ: Australia/Sydney
-      SECURITY_CI_REF: v1.2.0  # Pin a tag; bump deliberately.
+      SECURITY_CI_REF: v1.2.1  # Pin a tag; bump deliberately.
     steps:
       - name: Check out plugin
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
