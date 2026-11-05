@@ -5,8 +5,9 @@
 #
 # 1. Scans every lockfile in the plugin (composer.lock, package-lock.json, yarn.lock, ...) against the
 #    OSV database with a pinned, checksum-verified osv-scanner. Fails if any advisory matches.
-# 2. Lists libraries declared in thirdpartylibs.xml that have no lockfile, because OSV cannot match them
-#    by itself. Those need the manual check in the release record (section 7).
+# 2. Lists libraries declared in thirdpartylibs.xml that no lockfile lists (in their folder, or a composer.lock /
+#    package-lock.json above it that names their path), because OSV cannot match them by itself. Those need the
+#    manual check in the release record (section 7). Also warns when a declared version differs from the lockfile.
 set -euo pipefail
 
 plugin="${1:?plugin dir}"
@@ -29,17 +30,5 @@ case "$status" in
     *) echo "::error::osv-check: osv-scanner failed with exit code $status."; exit "$status" ;;
 esac
 
-if [ -f "$plugin/thirdpartylibs.xml" ]; then
-    php -r '
-        $xml = simplexml_load_file($argv[1]);
-        $root = dirname($argv[1]);
-        foreach ($xml->library as $lib) {
-            $loc = trim((string) $lib->location, "/");
-            $haslock = (bool) glob("$root/$loc/{composer.lock,package-lock.json,yarn.lock}", GLOB_BRACE);
-            if (!$haslock) {
-                printf("::warning::Check advisories by hand: %s %s (%s) — no lockfile for OSV to match.\n",
-                    $lib->name, $lib->version, $loc);
-            }
-        }
-    ' "$plugin/thirdpartylibs.xml"
-fi
+# Libraries in thirdpartylibs.xml that no lockfile lists need the manual check in the release record.
+php "$(dirname "$0")/thirdparty-lockfile-check.php" "$plugin"

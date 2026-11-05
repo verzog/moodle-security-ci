@@ -1,0 +1,4 @@
+{
+    "name": "selftest/thirdparty",
+    "require": {"acme/widget": "1.0.0", "acme/stale": "2.1.0"}
+}

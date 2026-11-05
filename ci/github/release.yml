@@ -23,7 +23,7 @@ jobs:
       TAG: ${{ github.event.release.tag_name }}
       GH_TOKEN: ${{ github.token }}
       TZ: Australia/Sydney
-      SECURITY_CI_REF: v1.2.1  # Same pin as moodle-ci.yml.
+      SECURITY_CI_REF: v1.2.2  # Same pin as moodle-ci.yml.
     steps:
       - name: Check out the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

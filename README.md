@@ -17,6 +17,7 @@ existing moodle-plugin-ci checks, and a release gate.
 bin/security-lint.php          The lint (PHP 8.2+, no dependencies)
 bin/check-test-record.sh       Release-record checker (used by the release gate)
 bin/osv-check.sh               Known-vulnerability check for lockfiles (S20/S21)
+bin/thirdparty-lockfile-check.php  Lists declared libraries no lockfile covers (used by osv-check.sh)
 config/phpmd-unused.xml        Blocking unused-code rules (Q7)
 ci/github/moodle-ci-security-job.yml   Job to add to each plugin's moodle-ci.yml
 ci/github/release.yml          Full replacement "Release zip" workflow with the gates
@@ -91,7 +92,7 @@ releases. Dependabot keeps this repo's pins current; copy new pins into plugin r
 
 ## Adopting it in a plugin
 
-1. **Publish this repo** (suggested `verzog/moodle-security-ci`, public, GPLv3+) and tag `v1.2.1`. It is
+1. **Publish this repo** (suggested `verzog/moodle-security-ci`, public, GPLv3+) and tag `v1.2.2`. It is
    dev tooling and is never packaged into a plugin zip, so it is fine for Mode A and C repos to use it.
 2. **First run, report only.** In the plugin checkout:
    `php ../moodle-security-ci/bin/security-lint.php --report-only .`
