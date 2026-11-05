@@ -53,6 +53,7 @@ that covers it.
 | `S11-secret-log` | S11 | A `$password`/`$token`/`$secret`/`$apikey` variable in `mtrace`, `debugging`, `error_log`, a logger or an exception |
 | `S12-no-events`, `S12-delete-no-event` | S12 | No `classes/event/` at all; a function that deletes records without triggering an event |
 | `S14-write-no-risk`, `S14-risky-archetype`, `S14-personal` | S13/S14 | `db/access.php` risk flags (and your §4.2 rule) |
+| `S14-unreadable` | S14 | `db/access.php` uses code the static reader will not evaluate (it is never executed) |
 | `S15-file-serve` | S15 | `readfile`, `send_file`, `send_stored_file`… outside `<component>_pluginfile()` |
 | `S16-sesskey-leak` | S16 | `sesskey()` in logs, event `other` data or a URL to another domain (PHP and JS) |
 | `S17-no-provider`, `S17-task-not-erased` | S17 | No privacy provider; adhoc task the provider never mentions |
@@ -85,7 +86,7 @@ For an adhoc task with no personal data, put `Security-lint: ignore S17 (reason)
 
 ## Adopting it in a plugin
 
-1. **Publish this repo** (suggested `verzog/moodle-security-ci`, public, GPLv3+) and tag `v1.1.0`. It is
+1. **Publish this repo** (suggested `verzog/moodle-security-ci`, public, GPLv3+) and tag `v1.2.0`. It is
    dev tooling and is never packaged into a plugin zip, so it is fine for Mode A and C repos to use it.
 2. **First run, report only.** In the plugin checkout:
    `php ../moodle-security-ci/bin/security-lint.php --report-only .`
@@ -106,16 +107,21 @@ For an adhoc task with no personal data, put `Security-lint: ignore S17 (reason)
 2. Run the Moodle Audit Service on the branch and fill the triage table.
 3. Set `Result: PASS`, merge to the plugin repo's `main`, confirm CI is green on that commit.
 4. Publish the GitHub release with tag `v1.3.0`. The workflow checks the tag, re-runs the lint, checks the record,
-   then attaches `<component>-v1.3.0.zip` and `<component>-v1.3.0-test-record.md`.
-5. Confirm both files are on the release.
+   then attaches `<component>-v1.3.0.zip`, `<component>-v1.3.0.zip.sha256` and `<component>-v1.3.0-test-record.md`.
+5. Confirm all three files are on the release.
 
 ## Self-test
 
 `bash selftest/run.sh` runs the lint over `selftest/fixture_plugin`, which has one `EXPECT:<rule>` marker per
 expected finding and several suppressed or safe look-alikes that must stay quiet, then over
-`selftest/clean_plugin`, which uses the safe version of every pattern and must produce no findings.
+`selftest/clean_plugin`, which uses the safe version of every pattern and must produce no findings (from the
+lint or the PHPMD ruleset), then over `selftest/hostile_plugin`, whose `db/access.php` writes a canary file if it
+is ever executed. CI also runs ShellCheck on the scripts and moodle-cs on `templates/tests/`.
 
 ## Limits
+
+The lint never runs plugin code. Every file, `db/access.php` included, is read as text or with PHP's tokenizer,
+so it is safe to point at a plugin you have not reviewed yet.
 
 This is a pattern lint, not a data-flow analyser. It will miss a query inside a helper that is called from a
 loop, and it cannot tell whether a value reaching `innerHTML` was already sanitised. The PHPUnit layer and the

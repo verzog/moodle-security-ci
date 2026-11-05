@@ -27,10 +27,9 @@ class get_items extends external_api {
         $context = \context_course::instance($params['courseid']);
         self::validate_context($context);
         require_capability('local/clean:view', $context);
-        $SESSION->local_clean_last = $params['courseid'];
         // Regression: string contents such as ")" must not be read as code punctuation.
         $note = "Items ({$params['courseid']})";
-        $title = get_string('pluginname', 'local_clean') . $note;
+        $SESSION->local_clean_last = get_string('pluginname', 'local_clean') . $note;
         $where = 'courseid = :courseid';
         $sql = "SELECT id, name FROM {local_clean_items} WHERE $where ORDER BY name";
         return array_values($DB->get_records_sql($sql, ['courseid' => $params['courseid']]));

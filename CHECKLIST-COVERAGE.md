@@ -28,7 +28,7 @@ release record covers the rest.
 | S11 | No secrets/PII in logs or errors | Lint (partly) | `S11-secret-log` (secret-named variables only; PII in logs stays a review item) |
 | S12 | Significant actions fire events | Lint + Test | `S12-no-events`, `S12-delete-no-event`; `events_test.php` |
 | S13 | Bulk-destructive ops confirmed; RISK_DATALOSS | Lint (risk flags) + Release | `S14-*` rules; confirmation screen checked by hand (section 2) |
-| S14 | Correct risk bitmasks | Lint | `S14-write-no-risk`, `S14-risky-archetype`, `S14-personal` |
+| S14 | Correct risk bitmasks | Lint | `S14-write-no-risk`, `S14-risky-archetype`, `S14-personal`, `S14-unreadable` |
 | S15 | Files served via pluginfile | Lint | `S15-file-serve` |
 | S16 | Sesskey kept out of logs/events/external URLs | Lint | `S16-sesskey-leak` (PHP and JS) |
 | S17 | Privacy provider | Lint + Test + Release | `S17-no-provider`, `S17-task-not-erased`; `privacy_test.php`; Data requests export/delete |

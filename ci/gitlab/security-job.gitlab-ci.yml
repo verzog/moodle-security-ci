@@ -7,10 +7,11 @@ security:
   variables:
     TZ: Australia/Sydney
     SECURITY_CI_REPO: https://github.com/verzog/moodle-security-ci.git
-    SECURITY_CI_REF: v1.1.0  # Pin a tag; bump deliberately.
+    SECURITY_CI_REF: v1.2.0  # Pin a tag; bump deliberately.
   before_script:
     - git clone --depth 1 --branch "$SECURITY_CI_REF" "$SECURITY_CI_REPO" /tmp/security-ci
-    - composer require --quiet --working-dir=/tmp/tools phpmd/phpmd:^2.15
+    - mkdir -p /tmp/tools
+    - composer require --quiet --no-interaction --working-dir=/tmp/tools phpmd/phpmd:^2.15
   script:
     - php /tmp/security-ci/bin/security-lint.php --codequality=gl-code-quality-report.json .
     - bash /tmp/security-ci/bin/osv-check.sh .
@@ -27,5 +28,5 @@ release-record:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
   script:
-    - git clone --depth 1 --branch "${SECURITY_CI_REF:-v1.1.0}" "${SECURITY_CI_REPO:-https://github.com/verzog/moodle-security-ci.git}" /tmp/security-ci
+    - git clone --depth 1 --branch "${SECURITY_CI_REF:-v1.2.0}" "${SECURITY_CI_REPO:-https://github.com/verzog/moodle-security-ci.git}" /tmp/security-ci
     - bash /tmp/security-ci/bin/check-test-record.sh . "$CI_COMMIT_TAG"

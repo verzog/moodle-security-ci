@@ -1,6 +1,20 @@
 name: Self-test
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: selftest-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TZ: Australia/Sydney
 
 jobs:
   selftest:
@@ -19,3 +33,30 @@ jobs:
         run: php -l bin/security-lint.php
       - name: Fixture self-test
         run: bash selftest/run.sh
+
+  scripts-and-templates:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer
+      - name: ShellCheck
+        # Info-level notes (e.g. SC2016 on deliberate single-quoted php -r code) are not failures.
+        run: shellcheck --severity=warning bin/*.sh selftest/run.sh
+      - name: Install phpcs (moodle-cs) and PHPMD
+        run: |
+          mkdir -p tools
+          composer require --quiet --no-interaction --working-dir=tools moodlehq/moodle-cs:^3.4 phpmd/phpmd:^2.15
+          # Register the standards explicitly rather than relying on the composer installer plugin.
+          tools/vendor/bin/phpcs --config-set installed_paths \
+            "$PWD/tools/vendor/moodlehq/moodle-cs/Standards,$PWD/tools/vendor/phpcsstandards/phpcsextra,$PWD/tools/vendor/phpcsstandards/phpcsutils"
+      - name: PHPUnit templates pass Moodle coding style
+        # Plugins copy these files as-is, so they must pass the same phpcs --max-warnings 0 as plugin CI.
+        run: tools/vendor/bin/phpcs --standard=moodle --warning-severity=1 templates/tests
+      - name: PHPMD unused-code ruleset loads and the clean fixture passes it
+        run: |
+          tools/vendor/bin/phpmd selftest/clean_plugin text config/phpmd-unused.xml \
+            --exclude '*/tests/*,*/vendor/*,*/amd/*,*/node_modules/*'

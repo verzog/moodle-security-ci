@@ -6,8 +6,11 @@
 
   security:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     env:
-      SECURITY_CI_REF: v1.1.0  # Pin a tag; bump deliberately.
+      TZ: Australia/Sydney
+      SECURITY_CI_REF: v1.2.0  # Pin a tag; bump deliberately.
     steps:
       - name: Check out plugin
         uses: actions/checkout@v4
@@ -35,6 +38,7 @@
       - name: Unused code (PHPMD, blocking)
         if: ${{ !cancelled() }}
         run: |
-          composer require --quiet --working-dir=tools phpmd/phpmd:^2.15
+          mkdir -p tools
+          composer require --quiet --no-interaction --working-dir=tools phpmd/phpmd:^2.15
           tools/vendor/bin/phpmd plugin text security-ci/config/phpmd-unused.xml \
             --exclude '*/tests/*,*/vendor/*,*/amd/*,*/node_modules/*'

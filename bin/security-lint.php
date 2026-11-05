@@ -19,8 +19,8 @@
  * Static security / performance lint for Moodle plugins.
  *
  * Each rule maps to a check ID used by the Moodle Audit Service reports (S = security,
- * P = performance, Q = code quality). The script never executes plugin code except
- * db/access.php, which is loaded with stub constants to read capability definitions.
+ * P = performance, Q = code quality). The script never executes plugin code: files,
+ * including db/access.php, are read as text or with the PHP tokenizer.
  *
  * Usage:
  *   php security-lint.php [options] <plugin-dir>
@@ -101,6 +101,11 @@ const RULES = [
         'S14',
         'RISK_CONFIG/XSS/DATALOSS capability granted to archetypes by default',
         'Remove the archetypes or justify with a suppression comment in db/access.php.',
+    ],
+    'S14-unreadable' => [
+        'S14',
+        'db/access.php could not be read without executing it',
+        'Keep $capabilities = [...] a plain array of strings, numbers and CAP_/CONTEXT_/RISK_ constants.',
     ],
     'S14-personal' => [
         'S14',
@@ -246,6 +251,167 @@ const QUERY_HELPERS = [
 
 /** Directories never scanned. */
 const SKIP_DIRS = ['.git', 'vendor', 'node_modules', 'tests', '.grunt', 'amd/build'];
+
+/** Constants allowed in db/access.php, with core's values. */
+const ACCESS_CONSTANTS = [
+    'CAP_INHERIT' => 0, 'CAP_ALLOW' => 1, 'CAP_PREVENT' => -1, 'CAP_PROHIBIT' => -1000,
+    'CONTEXT_SYSTEM' => 10, 'CONTEXT_USER' => 30, 'CONTEXT_COURSECAT' => 40, 'CONTEXT_COURSE' => 50,
+    'CONTEXT_MODULE' => 70, 'CONTEXT_BLOCK' => 80, 'RISK_MANAGETRUST' => 0x0001, 'RISK_CONFIG' => 0x0002,
+    'RISK_XSS' => 0x0004, 'RISK_PERSONAL' => 0x0008, 'RISK_SPAM' => 0x0010, 'RISK_DATALOSS' => 0x0020,
+    'true' => true, 'false' => false, 'null' => null,
+];
+
+/**
+ * Reads $capabilities from db/access.php with the tokenizer, without executing the file.
+ *
+ * Accepts array literals ([] or array()), strings, integers, the constants in ACCESS_CONSTANTS,
+ * unary minus and the | operator. Anything else throws UnexpectedValueException (code = line).
+ */
+final class access_parser {
+    /** @var array Significant tokens (whitespace and comments removed). */
+    private array $tokens = [];
+
+    /** @var int Current token index. */
+    private int $pos = 0;
+
+    /**
+     * Constructor.
+     *
+     * @param string $code Contents of db/access.php.
+     */
+    public function __construct(string $code) {
+        foreach (token_get_all($code) as $t) {
+            if (is_array($t) && in_array($t[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT, T_OPEN_TAG], true)) {
+                continue;
+            }
+            $this->tokens[] = $t;
+        }
+    }
+
+    /**
+     * The value assigned to $capabilities.
+     *
+     * @return array
+     */
+    public function capabilities(): array {
+        $count = count($this->tokens);
+        for ($i = 0; $i < $count; $i++) {
+            $t = $this->tokens[$i];
+            if (is_array($t) && $t[0] === T_VARIABLE && $t[1] === '$capabilities' && ($this->tokens[$i + 1] ?? null) === '=') {
+                $this->pos = $i + 2;
+                $value = $this->value();
+                if (!is_array($value)) {
+                    $this->fail('$capabilities is not an array');
+                }
+                return $value;
+            }
+        }
+        $this->fail('no "$capabilities = [...]" assignment found');
+    }
+
+    /**
+     * Parse one value, including "a | b | c".
+     *
+     * @return mixed
+     */
+    private function value(): mixed {
+        $value = $this->operand();
+        while (($this->tokens[$this->pos] ?? null) === '|') {
+            $this->pos++;
+            $right = $this->operand();
+            if (!is_int($value) || !is_int($right)) {
+                $this->fail('"|" used on a non-integer');
+            }
+            $value |= $right;
+        }
+        return $value;
+    }
+
+    /**
+     * Parse a literal, constant or array.
+     *
+     * @return mixed
+     */
+    private function operand(): mixed {
+        $t = $this->tokens[$this->pos] ?? null;
+        if ($t === '[') {
+            $this->pos++;
+            return $this->items(']');
+        }
+        if ($t === '-') {
+            $this->pos++;
+            $value = $this->operand();
+            if (!is_int($value)) {
+                $this->fail('"-" used on a non-integer');
+            }
+            return -$value;
+        }
+        if (is_array($t) && $t[0] === T_ARRAY && ($this->tokens[$this->pos + 1] ?? null) === '(') {
+            $this->pos += 2;
+            return $this->items(')');
+        }
+        if (is_array($t) && $t[0] === T_CONSTANT_ENCAPSED_STRING) {
+            $this->pos++;
+            $body = substr($t[1], 1, -1);
+            return $t[1][0] === "'" ? str_replace(['\\\\', "\\'"], ['\\', "'"], $body) : stripcslashes($body);
+        }
+        if (is_array($t) && $t[0] === T_LNUMBER) {
+            $this->pos++;
+            return intval($t[1], 0);
+        }
+        if (is_array($t) && in_array($t[0], [T_STRING, T_NAME_FULLY_QUALIFIED], true)) {
+            $name = ltrim($t[1], '\\');
+            $key = array_key_exists($name, ACCESS_CONSTANTS) ? $name : strtolower($name);
+            if (array_key_exists($key, ACCESS_CONSTANTS)) {
+                $this->pos++;
+                return ACCESS_CONSTANTS[$key];
+            }
+        }
+        $this->fail('unsupported code "' . (is_array($t) ? $t[1] : (string) $t) . '"');
+    }
+
+    /**
+     * Parse array items up to the closing bracket.
+     *
+     * @param string $close ']' or ')'.
+     * @return array
+     */
+    private function items(string $close): array {
+        $out = [];
+        while (($this->tokens[$this->pos] ?? null) !== $close) {
+            $first = $this->value();
+            $arrow = $this->tokens[$this->pos] ?? null;
+            if (is_array($arrow) && $arrow[0] === T_DOUBLE_ARROW) {
+                $this->pos++;
+                if (!is_int($first) && !is_string($first)) {
+                    $this->fail('array key is not a string or integer');
+                }
+                $out[$first] = $this->value();
+            } else {
+                $out[] = $first;
+            }
+            $next = $this->tokens[$this->pos] ?? null;
+            if ($next === ',') {
+                $this->pos++;
+            } else if ($next !== $close) {
+                $this->fail('expected "," or "' . $close . '"');
+            }
+        }
+        $this->pos++;
+        return $out;
+    }
+
+    /**
+     * Stop parsing.
+     *
+     * @param string $why Reason.
+     * @return never
+     */
+    private function fail(string $why): never {
+        $t = $this->tokens[min($this->pos, count($this->tokens) - 1)] ?? null;
+        throw new UnexpectedValueException($why, is_array($t) ? (int) $t[2] : 0);
+    }
+}
 
 /**
  * The linter.
@@ -1202,41 +1368,37 @@ final class security_lint {
 
     /**
      * S14 rules over db/access.php.
+     *
+     * The file is read with the tokenizer and never executed, so a hostile plugin cannot run code in CI.
      */
     private function capability_rules(): void {
         $file = $this->root . '/db/access.php';
         if (!is_file($file)) {
             return;
         }
-        $consts = [
-            'MOODLE_INTERNAL' => 1, 'CAP_INHERIT' => 0, 'CAP_ALLOW' => 1, 'CAP_PREVENT' => -1, 'CAP_PROHIBIT' => -1000,
-            'CONTEXT_SYSTEM' => 10, 'CONTEXT_USER' => 30, 'CONTEXT_COURSECAT' => 40, 'CONTEXT_COURSE' => 50,
-            'CONTEXT_MODULE' => 70, 'CONTEXT_BLOCK' => 80, 'RISK_MANAGETRUST' => 0x0001, 'RISK_CONFIG' => 0x0002,
-            'RISK_XSS' => 0x0004, 'RISK_PERSONAL' => 0x0008, 'RISK_SPAM' => 0x0010, 'RISK_DATALOSS' => 0x0020,
-        ];
-        foreach ($consts as $name => $value) {
-            if (!defined($name)) {
-                define($name, $value);
-            }
-        }
-        $caps = (static function (string $f): array {
-            $capabilities = [];
-            include($f);
-            return $capabilities;
-        })($file);
         $rel = 'db/access.php';
+        try {
+            $caps = (new access_parser((string) file_get_contents($file)))->capabilities();
+        } catch (UnexpectedValueException $e) {
+            $this->add('S14-unreadable', $rel, $e->getCode() ?: 1, $e->getMessage());
+            return;
+        }
         foreach ($caps as $name => $def) {
-            $line = $this->find_line($rel, '/[\'"]' . preg_quote($name, '/') . '[\'"]\s*=>/');
+            if (!is_array($def)) {
+                continue;
+            }
+            $line = $this->find_line($rel, '/[\'"]' . preg_quote((string) $name, '/') . '[\'"]\s*=>/');
             $risk = (int) ($def['riskbitmask'] ?? 0);
             if (($def['captype'] ?? '') === 'write' && $risk === 0) {
-                $this->add('S14-write-no-risk', $rel, $line, $name);
+                $this->add('S14-write-no-risk', $rel, $line, (string) $name);
             }
-            if (($risk & (RISK_CONFIG | RISK_XSS | RISK_DATALOSS)) && !empty($def['archetypes'])) {
-                $this->add('S14-risky-archetype', $rel, $line, $name);
+            if (($risk & (ACCESS_CONSTANTS['RISK_CONFIG'] | ACCESS_CONSTANTS['RISK_XSS'] | ACCESS_CONSTANTS['RISK_DATALOSS']))
+                    && !empty($def['archetypes'])) {
+                $this->add('S14-risky-archetype', $rel, $line, (string) $name);
             }
-            if (preg_match('/:(view(all|any|submissions|reports|grades)|managesubmissions|grade|export|viewreport)/', $name)
-                    && !($risk & RISK_PERSONAL)) {
-                $this->add('S14-personal', $rel, $line, $name);
+            $personal = '/:(view(all|any|submissions|reports|grades)|managesubmissions|grade|export|viewreport)/';
+            if (preg_match($personal, (string) $name) && !($risk & ACCESS_CONSTANTS['RISK_PERSONAL'])) {
+                $this->add('S14-personal', $rel, $line, (string) $name);
             }
         }
     }

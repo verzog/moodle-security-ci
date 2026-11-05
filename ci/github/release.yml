@@ -4,7 +4,7 @@
 #   1. the tag (minus its leading "v") equals $plugin->release in version.php,
 #   2. security-lint reports nothing and OSV finds no known vulnerabilities in lockfiles,
 #   3. tests/release/<tag>.md exists, is fully ticked and says "Result: PASS".
-# It then attaches the installable zip and the test record to the release.
+# It then attaches the installable zip, its SHA-256 checksum and the test record to the release.
 # If a gate fails: fix on main, then re-run this workflow (never attach files by hand).
 
 name: Release zip
@@ -22,7 +22,8 @@ jobs:
     env:
       TAG: ${{ github.event.release.tag_name }}
       GH_TOKEN: ${{ github.token }}
-      SECURITY_CI_REF: v1.1.0  # Same pin as moodle-ci.yml.
+      TZ: Australia/Sydney
+      SECURITY_CI_REF: v1.2.0  # Same pin as moodle-ci.yml.
     steps:
       - name: Check out the release tag
         uses: actions/checkout@v4
@@ -76,4 +77,6 @@ jobs:
           # The folder inside the zip must be the plugin's directory name, not the repo name.
           git -C plugin archive --format=zip --prefix="${NAME}/" -o "../${ZIP}" "$TAG"
           cp "plugin/tests/release/${TAG}.md" "$RECORD"
-          gh release upload "$TAG" "$ZIP" "$RECORD" --clobber --repo "$GITHUB_REPOSITORY"
+          # Checksum so a site admin can confirm the zip they install is the one CI built.
+          sha256sum "$ZIP" > "${ZIP}.sha256"
+          gh release upload "$TAG" "$ZIP" "${ZIP}.sha256" "$RECORD" --clobber --repo "$GITHUB_REPOSITORY"

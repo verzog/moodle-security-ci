@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.2.0 — 06/11/2026
+
+- Security: `db/access.php` is now read with the tokenizer instead of being `include`d, so the lint never
+  executes plugin code. A file it cannot read statically reports the new rule `S14-unreadable`. Checked against
+  all 174 `db/access.php` files in Moodle 5.1 core (762 capabilities, all read).
+- Fixed: the PHPMD step in the GitHub and GitLab jobs failed on every plugin because `composer --working-dir`
+  pointed at a directory that did not exist.
+- Release gate also attaches `<component>-<tag>.zip.sha256`.
+- CI jobs: `TZ: Australia/Sydney`, read-only `permissions` on the security job.
+- Self-test: hostile fixture proving `db/access.php` is not executed; Code Quality JSON check; the clean fixture
+  must also pass PHPMD; ShellCheck on the scripts; moodle-cs on `templates/tests/`; read-only permissions and
+  no duplicate push/PR runs.
+- Added `LICENSE` (GPLv3) and `.gitattributes` (LF line endings).
+
 ## v1.1.0 — 06/11/2026
 
 - 16 new lint rules (40 in total) so every automatable check ID on the Moodle Audit Service checklist is covered:
