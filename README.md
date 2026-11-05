@@ -91,7 +91,7 @@ releases. Dependabot keeps this repo's pins current; copy new pins into plugin r
 
 ## Adopting it in a plugin
 
-1. **Publish this repo** (suggested `verzog/moodle-security-ci`, public, GPLv3+) and tag `v1.2.0`. It is
+1. **Publish this repo** (suggested `verzog/moodle-security-ci`, public, GPLv3+) and tag `v1.2.1`. It is
    dev tooling and is never packaged into a plugin zip, so it is fine for Mode A and C repos to use it.
 2. **First run, report only.** In the plugin checkout:
    `php ../moodle-security-ci/bin/security-lint.php --report-only .`

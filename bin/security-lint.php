@@ -462,7 +462,10 @@ final class security_lint {
             $code = (string) file_get_contents($abs);
             $this->lines[$rel] = preg_split('/\R/', $code);
             if (str_ends_with($rel, '.php')) {
-                $this->php_line_rules($rel, $code);
+                // Language files hold only strings, and those often name the very functions the rules look for.
+                if (!str_starts_with($rel, 'lang/')) {
+                    $this->php_line_rules($rel, $code);
+                }
                 $this->php_token_rules($rel, $code);
             } else if (str_ends_with($rel, '.js')) {
                 $this->js_rules($rel);
@@ -594,6 +597,28 @@ final class security_lint {
     }
 
     /**
+     * File lines with the contents of plain string literals blanked (line breaks kept).
+     *
+     * Interpolated strings are left alone, because "$_GET[x]" or "{$e->getMessage()}" is real code.
+     *
+     * @param string $code File contents.
+     * @param int $count Number of lines expected.
+     * @return string[] Lines, indexed from 0.
+     */
+    private function code_only_lines(string $code, int $count): array {
+        $out = '';
+        foreach (token_get_all($code) as $t) {
+            if (is_array($t) && $t[0] === T_CONSTANT_ENCAPSED_STRING) {
+                $out .= $t[1][0] . str_repeat("\n", substr_count($t[1], "\n")) . $t[1][0];
+            } else {
+                $out .= is_array($t) ? $t[1] : $t;
+            }
+        }
+        $lines = preg_split('/\R/', $out);
+        return count($lines) === $count ? $lines : [];
+    }
+
+    /**
      * Regex rules applied line by line to PHP files.
      *
      * @param string $rel Relative path.
@@ -606,24 +631,28 @@ final class security_lint {
         $background = $this->is_background($rel);
         $external = str_starts_with($rel, 'classes/external/') || $rel === 'db/services.php';
 
+        $codelines = $this->code_only_lines($code, count($lines));
+
         foreach ($lines as $i => $l) {
             $n = $i + 1;
             if (preg_match('/^\s*(\/\/|\*|#)/', $l)) {
                 continue;
             }
-            if (preg_match('/\$_(GET|POST|REQUEST|COOKIE|FILES|SESSION)\b/', $l)) {
+            // The same line with string literals blanked, for rules about code rather than text.
+            $c = $codelines[$i] ?? $l;
+            if (preg_match('/\$_(GET|POST|REQUEST|COOKIE|FILES|SESSION)\b/', $c)) {
                 $this->add('S3-superglobal', $rel, $n);
             }
-            if (!$external && preg_match('/\bPARAM_RAW\b/', $l)) {
+            if (!$external && preg_match('/\bPARAM_RAW\b/', $c)) {
                 $this->add('S3-param-raw', $rel, $n);
             }
             if ($writes && preg_match('/->(\$\w+|\{\$[^}]+\})\s*=(?!=)/', $l)) {
                 $this->add('S3-dynamic-column', $rel, $n);
             }
             if (
-                preg_match('/getMessage\(\)/', $l)
-                    && preg_match('/(get_string|notification|echo|print\b|html_writer|\$OUTPUT)/', $l)
-                    && !preg_match('/(\bs\(|format_string|htmlspecialchars|s\(\s*\$\w+->getMessage)/', $l)
+                preg_match('/getMessage\(\)/', $c)
+                    && preg_match('/(get_string|notification|echo|print\b|html_writer|\$OUTPUT)/', $c)
+                    && !preg_match('/(\bs\(|format_string|htmlspecialchars|s\(\s*\$\w+->getMessage)/', $c)
             ) {
                 $this->add('S5-php-exception', $rel, $n);
             }
@@ -638,12 +667,12 @@ final class security_lint {
                 $this->add('S5-php-textarea', $rel, $n);
             }
             if (
-                preg_match('/\bvar_dump\s*\(/', $l)
-                    || preg_match('/\b(print_r|var_export)\s*\((?![^;]*,\s*true\s*\))/', $l)
+                preg_match('/\bvar_dump\s*\(/', $c)
+                    || preg_match('/\b(print_r|var_export)\s*\((?![^;]*,\s*true\s*\))/', $c)
             ) {
                 $this->add('Q7-debug', $rel, $n);
             }
-            if (!$background && preg_match('/\b(u?sleep|time_nanosleep)\s*\(/', $l)) {
+            if (!$background && preg_match('/\b(u?sleep|time_nanosleep)\s*\(/', $c)) {
                 $this->add('P4-sleep', $rel, $n);
             }
             if (!$background && preg_match('/get_lock\s*\([^;]*,\s*(\d+)\s*\)/', $l, $m) && (int) $m[1] > 2) {
