@@ -49,8 +49,11 @@ jobs:
       - name: Install phpcs (moodle-cs) and PHPMD
         run: |
           mkdir -p tools
+          echo '{}' > tools/composer.json
+          # The standards are registered explicitly below, so moodle-cs's composer installer plugin is not needed.
+          composer config --no-plugins --working-dir=tools \
+            allow-plugins.dealerdirect/phpcodesniffer-composer-installer false
           composer require --quiet --no-interaction --working-dir=tools moodlehq/moodle-cs:^3.4 phpmd/phpmd:^2.15
-          # Register the standards explicitly rather than relying on the composer installer plugin.
           v="$PWD/tools/vendor"
           tools/vendor/bin/phpcs --config-set installed_paths \
             "$v/moodlehq/moodle-cs/Standards,$v/phpcsstandards/phpcsextra,$v/phpcsstandards/phpcsutils"
