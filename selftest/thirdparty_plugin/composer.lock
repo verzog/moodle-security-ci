@@ -1,0 +1,7 @@
+{
+    "packages": [
+        {"name": "acme/widget", "version": "v1.0.0"},
+        {"name": "acme/stale", "version": "2.1.0"}
+    ],
+    "packages-dev": []
+}

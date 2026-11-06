@@ -66,3 +66,27 @@ php -r '
     }
 ' "$report" "$(wc -l < "$expected")"
 echo "selftest: PASS (Code Quality report)"
+
+# Third-party libraries: covered by a lockfile in or above their folder, or flagged for a manual check.
+tp="$(php "$here/../bin/thirdparty-lockfile-check.php" "$here/thirdparty_plugin")"
+tpfail=0
+for want in 'Widget (vendor/acme/widget) is covered by the lockfile in the plugin root' \
+    'Composer autoloader (vendor) is covered by the lockfile in the plugin root' \
+    'Leftpad (node_modules/leftpad) is covered by the lockfile in the plugin root' \
+    'Stale: thirdpartylibs.xml declares 2.0.0 but the lockfile has 2.1.0' \
+    'Check advisories by hand: Chart 4.0.0 (lib/chart)' \
+    'Check advisories by hand: Other widget 9.9.9 (Vendor/acme/widget)' \
+    'Own lock (lib/own) is covered by its own lockfile' \
+    'Stale (vendor/acme/stale) is covered by the lockfile in the plugin root' \
+    "Outside: location '../outside' is empty or leaves the plugin"; do
+    grep -qF -- "$want" <<< "$tp" || { echo "selftest: FAIL (third-party check missing: $want)"; tpfail=1; }
+done
+if [ "$(grep -c 'Check advisories by hand' <<< "$tp")" -ne 2 ]; then
+    echo "selftest: FAIL (expected exactly two libraries flagged for a manual check)"
+    tpfail=1
+fi
+if [ "$tpfail" -ne 0 ]; then
+    echo "$tp"
+    exit 1
+fi
+echo "selftest: PASS (third-party lockfile coverage)"
