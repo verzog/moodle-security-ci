@@ -75,11 +75,14 @@ for want in 'Widget (vendor/acme/widget) is covered by the lockfile in the plugi
     'Leftpad (node_modules/leftpad) is covered by the lockfile in the plugin root' \
     'Stale: thirdpartylibs.xml declares 2.0.0 but the lockfile has 2.1.0' \
     'Check advisories by hand: Chart 4.0.0 (lib/chart)' \
+    'Check advisories by hand: Other widget 9.9.9 (Vendor/acme/widget)' \
+    'Own lock (lib/own) is covered by its own lockfile' \
+    'Stale (vendor/acme/stale) is covered by the lockfile in the plugin root' \
     "Outside: location '../outside' is empty or leaves the plugin"; do
     grep -qF -- "$want" <<< "$tp" || { echo "selftest: FAIL (third-party check missing: $want)"; tpfail=1; }
 done
-if [ "$(grep -c 'Check advisories by hand' <<< "$tp")" -ne 1 ]; then
-    echo "selftest: FAIL (expected exactly one library flagged for a manual check)"
+if [ "$(grep -c 'Check advisories by hand' <<< "$tp")" -ne 2 ]; then
+    echo "selftest: FAIL (expected exactly two libraries flagged for a manual check)"
     tpfail=1
 fi
 if [ "$tpfail" -ne 0 ]; then

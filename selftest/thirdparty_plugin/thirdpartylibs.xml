@@ -4,6 +4,8 @@
     <library><location>vendor/acme/stale</location><name>Stale</name><version>2.0.0</version></library>
     <library><location>vendor</location><name>Composer autoloader</name><version></version></library>
     <library><location>node_modules/leftpad</location><name>Leftpad</name><version>1.3.0</version></library>
+    <library><location>Vendor/acme/widget</location><name>Other widget</name><version>9.9.9</version></library>
+    <library><location>lib/own</location><name>Own lock</name><version>1.0.0</version></library>
     <library><location>lib/chart</location><name>Chart</name><version>4.0.0</version></library>
     <library><location>../outside</location><name>Outside</name><version>1.0</version></library>
 </libraries>

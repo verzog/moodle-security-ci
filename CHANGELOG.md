@@ -8,7 +8,10 @@
   itself, or when a `package-lock.json` above it lists `node_modules/<name>`. Found on local_codechecker, where
   five libraries installed by the plugin's root `composer.lock` were each flagged on every run.
 - New warning when `thirdpartylibs.xml` declares a different version from the lockfile, because OSV checks the
-  lockfile version.
+  lockfile version. A lockfile inside the library itself (which lists its dependencies, not its own version) no
+  longer hides this comparison; it now only counts as coverage when no parent lockfile lists the library.
+- Installed paths are matched case-sensitively, as on the Linux runners, so `Vendor/acme/widget` is not taken as
+  covered by a lockfile entry for `vendor/acme/widget`.
 - A `<location>` that is empty or leaves the plugin (`..`) is flagged for a manual check instead of being read.
 - The check moved from inline `php -r` code into `bin/thirdparty-lockfile-check.php`, which CI now style-checks,
   with a self-test fixture (`selftest/thirdparty_plugin`).
