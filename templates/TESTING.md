@@ -54,3 +54,9 @@ These cannot be automated reliably, so they are in the release record:
 ```
 
 Each release record lists suppressions added since the previous release, so they are reviewed once.
+
+## If the release gate fails
+
+The gates check the code at the tag, so a fix merged to `main` afterwards is not in it. If a gate fails
+because of the code or the record, delete the release and its tag (nothing was attached), fix on `main`
+and publish again. Re-run the workflow only for a temporary failure (network, GitHub outage).

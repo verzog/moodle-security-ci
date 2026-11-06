@@ -7,7 +7,7 @@
   variables:
     TZ: Australia/Sydney
     SECURITY_CI_REPO: https://github.com/verzog/moodle-security-ci.git
-    SECURITY_CI_REF: v1.2.2  # Pin a tag; bump deliberately.
+    SECURITY_CI_REF: v1.2.3  # Pin a tag; bump deliberately.
 
 security:
   extends: .security-ci

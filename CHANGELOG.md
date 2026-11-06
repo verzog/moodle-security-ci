@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.2.3 — 06/11/2026
+
+- Docs: corrected what to do when a release gate fails. `ci/github/release.yml` said "fix on main, then re-run
+  this workflow", which cannot work: the gates check the code at the tag, so a fix merged to `main` afterwards is
+  not in it. The comment, a new "If a release gate fails" section in the README and the `templates/TESTING.md`
+  template now say to delete the release and its tag (nothing was attached), fix on `main` and publish again,
+  and to re-run only after a temporary failure. Found when local_codechecker copied the old advice.
+- Pins in the CI snippets and README bumped to `v1.2.3`. No code changes.
+
 ## v1.2.2 — 06/11/2026
 
 - `osv-check.sh` no longer asks for a manual advisory check on libraries a lockfile already covers. A library in
