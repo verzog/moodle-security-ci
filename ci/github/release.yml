@@ -5,7 +5,10 @@
 #   2. security-lint reports nothing and OSV finds no known vulnerabilities in lockfiles,
 #   3. tests/release/<tag>.md exists, is fully ticked and says "Result: PASS".
 # It then attaches the installable zip, its SHA-256 checksum and the test record to the release.
-# If a gate fails: fix on main, then re-run this workflow (never attach files by hand).
+# The gates check the code at the tag, so a fix merged to main afterwards is not in it. If a gate
+# fails because of the code or the record, delete the release and its tag (nothing was attached),
+# fix on main and publish again. Use "Re-run jobs" only for a temporary failure (network, GitHub
+# outage). Never attach files by hand.
 
 name: Release zip
 
@@ -23,7 +26,7 @@ jobs:
       TAG: ${{ github.event.release.tag_name }}
       GH_TOKEN: ${{ github.token }}
       TZ: Australia/Sydney
-      SECURITY_CI_REF: v1.2.2  # Same pin as moodle-ci.yml.
+      SECURITY_CI_REF: v1.2.3  # Same pin as moodle-ci.yml.
     steps:
       - name: Check out the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

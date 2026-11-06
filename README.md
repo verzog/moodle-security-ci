@@ -92,7 +92,7 @@ releases. Dependabot keeps this repo's pins current; copy new pins into plugin r
 
 ## Adopting it in a plugin
 
-1. **Publish this repo** (suggested `verzog/moodle-security-ci`, public, GPLv3+) and tag `v1.2.2`. It is
+1. **Publish this repo** (suggested `verzog/moodle-security-ci`, public, GPLv3+) and tag `v1.2.3`. It is
    dev tooling and is never packaged into a plugin zip, so it is fine for Mode A and C repos to use it.
 2. **First run, report only.** In the plugin checkout:
    `php ../moodle-security-ci/bin/security-lint.php --report-only .`
@@ -115,6 +115,17 @@ releases. Dependabot keeps this repo's pins current; copy new pins into plugin r
 4. Publish the GitHub release with tag `v1.3.0`. The workflow checks the tag, re-runs the lint, checks the record,
    then attaches `<component>-v1.3.0.zip`, `<component>-v1.3.0.zip.sha256` and `<component>-v1.3.0-test-record.md`.
 5. Confirm all three files are on the release.
+
+### If a release gate fails
+
+Nothing is attached, so nobody has the release yet. The gates check the code **at the tag**, so a fix
+merged to `main` afterwards is not in it, and re-running the workflow fails the same way.
+
+- **The code or the record is wrong** (a lint finding, an OSV advisory, a missing or unticked record,
+  a tag that does not match `version.php`): delete the release and its tag on GitHub, fix on a branch,
+  merge to `main`, and publish the release again with the same tag.
+- **A temporary failure** (network, GitHub outage, the OSV service down): open the failed run in the
+  Actions tab and use **Re-run jobs**.
 
 ## Self-test
 
